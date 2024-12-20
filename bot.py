@@ -1,13 +1,21 @@
-# bot.py
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import re  # Para validar el formato del chat ID
 from config import TOKEN, WEB_LINK, DEFAULT_MESSAGE, DEFAULT_IMAGE_URL  # Importar parámetros desde config.py
+from auth import get_authorization_message, is_user_authorized  # Importar autenticación
 
 async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Función para enviar un mensaje con un botón de enlace, mensaje personalizado e imagen a un chat especificado."""
     bot = context.bot
+    user_id = update.effective_user.id
+
+    # Verificar si el usuario está autorizado
+    if not is_user_authorized(user_id):
+        await update.message.reply_text(
+            "No estás autorizado para usar este bot o tu acceso ha expirado."
+        )
+        return
+
     args = context.args  # Obtiene los argumentos del comando
 
     # Validar que se hayan pasado argumentos
@@ -55,6 +63,11 @@ async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Error al enviar el mensaje: {e}")
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando /start para autenticar usuarios"""
+    user_id = update.effective_user.id
+    message = get_authorization_message(user_id)  # Verificar autorización
+    await update.message.reply_text(message)
 
 def main():
     """Función principal para ejecutar el bot"""
@@ -62,6 +75,7 @@ def main():
     application = Application.builder().token(TOKEN).build()
 
     # Comandos disponibles
+    application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("send", send_message))
 
     # Iniciar el bot
