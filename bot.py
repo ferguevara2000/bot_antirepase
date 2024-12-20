@@ -1,21 +1,31 @@
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
+# bot.py
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-
-# Token de tu bot
-TOKEN = "7837611356:AAEBYhO4RI82sX4W_YCXzH1XbEwHH6O39tk"
-
-# ID del chat al que enviarás el mensaje (puede ser un chat individual o grupal)
-CHAT_ID = "-1002413385933"
-
-# URL de tu web app
-WEB_LINK = "https://t.me/resendFer_bot/test"  # Asegúrate de usar el prefijo https://
-
-# URL o ruta local de la imagen
-IMAGE_URL = "https://via.placeholder.com/600x400.png?text=Desbloquear+Contenido"  # URL pública de la imagen
+import re  # Para validar el formato del chat ID
+from config import TOKEN, WEB_LINK, IMAGE_URL  # Importar los parámetros desde config.py
 
 async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Función para enviar un mensaje con un botón de enlace e imagen"""
+    """Función para enviar un mensaje con un botón de enlace e imagen a un chat especificado"""
     bot = context.bot
+    args = context.args  # Obtiene los argumentos del comando
+
+    # Validar que se haya pasado un ID de chat como argumento
+    if len(args) < 1:
+        await update.message.reply_text(
+            "Por favor, proporciona el ID del chat al que deseas enviar el mensaje.\n\n"
+            "Uso: /send <chat_id>"
+        )
+        return
+
+    # Obtener el ID del chat del argumento
+    chat_id = args[0]
+
+    # Validar formato del chat ID (puede ser un número o un número con prefijo '-')
+    if not re.match(r"^-?\d+$", chat_id):
+        await update.message.reply_text("El ID del chat proporcionado no es válido.")
+        return
+
     message_text = "Haz clic en el botón para desbloquear el contenido."
 
     # Configuración del botón que actúa como enlace
@@ -27,13 +37,17 @@ async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Crear el teclado con el botón
     reply_markup = InlineKeyboardMarkup([[button]])
 
-    # Enviar la imagen junto con el texto y el botón
-    await bot.send_photo(
-        chat_id=CHAT_ID,
-        photo=IMAGE_URL,              # URL de la imagen
-        caption=message_text,         # Mensaje que acompaña la imagen
-        reply_markup=reply_markup,    # Teclado con el botón
-    )
+    try:
+        # Enviar la imagen junto con el texto y el botón al chat especificado
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=IMAGE_URL,              # URL de la imagen
+            caption=message_text,         # Mensaje que acompaña la imagen
+            reply_markup=reply_markup,    # Teclado con el botón
+        )
+        await update.message.reply_text(f"Mensaje enviado al chat {chat_id}.")
+    except Exception as e:
+        await update.message.reply_text(f"Error al enviar el mensaje: {e}")
 
 def main():
     """Función principal para ejecutar el bot"""
