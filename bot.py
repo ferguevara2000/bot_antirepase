@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 TOKEN = "7837611356:AAEBYhO4RI82sX4W_YCXzH1XbEwHH6O39tk"
 
 # ID del chat al que enviarás el mensaje (puede ser un chat individual o grupal)
-CHAT_ID = "-1002346148753"
+CHAT_ID = "-1002413385933"
 
 # URL de tu web app
 WEB_LINK = "https://t.me/resendFer_bot/test"  # Asegúrate de usar el prefijo https://
