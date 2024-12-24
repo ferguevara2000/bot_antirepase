@@ -2,11 +2,15 @@
   {
     "user_id": 1310280807,
     "username": "Fernando",
-    "expires_at": "2024-12-25T23:59:59"
+    "expires_at": "2024-12-25T23:59:59",
+    "default_message": "Este es tu mensaje predeterminado.",
+    "default_image_url": "https://betwingreen.com/wp-content/uploads/2022/03/pop.png"
   },
   {
     "user_id": 987654321,
     "username": "anotheruser",
-    "expires_at": "2024-12-25T23:59:59"
+    "expires_at": "2024-12-25T23:59:59",
+    "default_message": "Este es tu mensaje predeterminado.",
+    "default_image_url": "https://betwingreen.com/wp-content/uploads/2022/03/pop.png"
   }
 ]

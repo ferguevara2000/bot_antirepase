@@ -1,8 +1,10 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import re  # Para validar el formato del chat ID
-from config import TOKEN, WEB_LINK, DEFAULT_MESSAGE, DEFAULT_IMAGE_URL  # Importar parámetros desde config.py
+from config import TOKEN, WEB_LINK  # Importar parámetros desde config.py
 from auth import get_authorization_message, is_user_authorized  # Importar autenticación
+from user import obtener_datos_usuario  # Importar la lógica de usuario
+from menu import agregar_manejadores, menu
 
 async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Función para enviar un mensaje con un botón de enlace, mensaje personalizado e imagen a un chat especificado."""
@@ -34,13 +36,16 @@ async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("El ID del chat proporcionado no es válido.")
         return
 
+    # Obtener los datos del usuario (mensaje e imagen)
+    mensaje_predeterminado, imagen_predeterminada = obtener_datos_usuario(user_id)
+
     # Detectar si el último argumento es un enlace (URL)
     if len(args) > 2 and args[-1].startswith("http"):
         image_url = args[-1]  # Último argumento como URL de la imagen
         message_text = " ".join(args[1:-1])  # El resto como mensaje personalizado
     else:
-        image_url = DEFAULT_IMAGE_URL  # URL de la imagen predeterminada
-        message_text = " ".join(args[1:]) if len(args) > 1 else DEFAULT_MESSAGE
+        image_url = imagen_predeterminada  # URL de la imagen predeterminada
+        message_text = " ".join(args[1:]) if len(args) > 1 else mensaje_predeterminado
 
     # Configuración del botón que actúa como enlace
     button = InlineKeyboardButton(
@@ -77,6 +82,10 @@ def main():
     # Comandos disponibles
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("send", send_message))
+    application.add_handler(CommandHandler("menu", menu))  # Agregar el comando /menu
+
+    # Llamar la función que agrega los manejadores del menú
+    agregar_manejadores(application)
 
     # Iniciar el bot
     application.run_polling()
