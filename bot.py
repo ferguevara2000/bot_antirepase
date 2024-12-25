@@ -1,3 +1,5 @@
+from threading import Thread
+from server import start_server  # Importar el servidor Flask
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import re  # Para validar el formato del chat ID
@@ -100,6 +102,10 @@ def main():
 
     # Llamar la función que agrega los manejadores del menú
     agregar_manejadores(application)
+
+    # Inicia el servidor Flask en un hilo paralelo
+    server_thread = Thread(target=start_server, daemon=True)
+    server_thread.start()
 
     # Iniciar el bot
     application.run_polling()
