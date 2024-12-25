@@ -24,3 +24,16 @@ def obtener_datos_usuario(user_id):
 
     # Si no se encuentra el usuario, se devuelven valores por defecto
     return "Mensaje no configurado.", "https://upload.wikimedia.org/wikipedia/commons/6/64/Ejemplo.png"
+
+def obtener_image_id_usuario(user_id):
+    """Obtiene el image_id de un usuario."""
+    usuarios = cargar_datos_usuarios()
+
+    # Buscar al usuario en la lista de usuarios
+    usuario_data = next((usuario for usuario in usuarios if usuario['user_id'] == user_id), None)
+
+    if usuario_data:
+        return usuario_data.get("image_id", 0)  # Retorna el image_id o 0 como predeterminado
+
+    # Si no se encuentra el usuario, se retorna un valor por defecto
+    return 0

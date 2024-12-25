@@ -3,8 +3,9 @@
     "user_id": 1310280807,
     "username": "Fernando",
     "expires_at": "2024-12-25T23:59:59",
-    "default_message": "Este es tu mensaje predeterminado.",
-    "default_image_url": "https://betwingreen.com/wp-content/uploads/2022/03/pop.png"
+    "default_message": "\uD83D\uDD12 Haz clic en el boton de abajo para desbloquear el contenido",
+    "default_image_url": "https://betwingreen.com/wp-content/uploads/2022/03/pop.png",
+    "image_id": 1
   },
   {
     "user_id": 987654321,
