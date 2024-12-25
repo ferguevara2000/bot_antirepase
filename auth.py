@@ -1,12 +1,17 @@
-import json
+import requests
 from datetime import datetime
 
-# Cargar la lista de usuarios desde el archivo JSON
-def load_users(file_path="users.json"):
+# Dirección del API
+API_URL = "https://webapp-telegram-backend.onrender.com/users"
+
+# Cargar la lista de usuarios desde el API
+def load_users():
     try:
-        with open(file_path, "r") as file:
-            return json.load(file)
-    except FileNotFoundError:
+        response = requests.get(API_URL)
+        response.raise_for_status()  # Verificar si la solicitud fue exitosa
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error al cargar usuarios desde el API: {e}")
         return []
 
 # Verificar si el usuario está autorizado

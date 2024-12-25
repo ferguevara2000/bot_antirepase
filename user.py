@@ -1,13 +1,17 @@
-import json
+import requests
+
+# Dirección del API
+API_URL = "https://webapp-telegram-backend.onrender.com/users"
 
 def cargar_datos_usuarios():
-    """Carga los datos de los usuarios desde un archivo JSON."""
+    """Carga los datos de los usuarios desde un API."""
     try:
-        with open("users.json", "r") as f:
-            return json.load(f)  # Devuelve una lista de usuarios
-    except FileNotFoundError:
-        return []  # Retorna una lista vacía si el archivo no existe
-
+        response = requests.get(API_URL)
+        response.raise_for_status()  # Verificar si la solicitud fue exitosa
+        return response.json()  # Devuelve una lista de usuarios
+    except requests.exceptions.RequestException as e:
+        print(f"Error al cargar usuarios desde el API: {e}")
+        return []  # Retorna una lista vacía si la solicitud falla
 
 def obtener_datos_usuario(user_id):
     """Obtiene la configuración personalizada (mensaje e imagen) de un usuario."""
@@ -18,8 +22,10 @@ def obtener_datos_usuario(user_id):
 
     if usuario_data:
         mensaje_predeterminado = usuario_data.get("default_message", "Mensaje predeterminado no encontrado.")
-        imagen_predeterminada = usuario_data.get("default_image_url",
-                                                 "https://upload.wikimedia.org/wikipedia/commons/6/64/Ejemplo.png")
+        imagen_predeterminada = usuario_data.get(
+            "default_image_url",
+            "https://upload.wikimedia.org/wikipedia/commons/6/64/Ejemplo.png"
+        )
         return mensaje_predeterminado, imagen_predeterminada
 
     # Si no se encuentra el usuario, se devuelven valores por defecto
