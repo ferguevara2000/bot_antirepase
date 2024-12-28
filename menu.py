@@ -10,59 +10,59 @@ estado_edicion = {
     "mensaje": {}
 }
 
-# Función para mostrar el menú
 async def menu(update: Update, context: CallbackContext):
     """Envía un mensaje con botones para navegar por el menú."""
     keyboard = [
+        [InlineKeyboardButton("Enviar Mensaje", callback_data="enviar_mensaje")],
+        [InlineKeyboardButton("Guia de Uso", callback_data="guia_uso")],
         [
-            InlineKeyboardButton("Editar Logo", callback_data="editar_logo"),
-            InlineKeyboardButton("Editar Mensaje", callback_data="editar_mensaje")
+            InlineKeyboardButton("Contacto", callback_data="contacto"),
+            InlineKeyboardButton("Membresía", callback_data="membresia")
         ],
         [
-            InlineKeyboardButton("Membresía", callback_data="fecha_expiracion"),
-            InlineKeyboardButton("Ayuda", callback_data="ayuda")
+            InlineKeyboardButton("Comprar", callback_data="comprar"),
+            InlineKeyboardButton("Ajustes", callback_data="ajustes")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text('Por favor selecciona una opción:', reply_markup=reply_markup)
+    if update.message:
+        await update.message.reply_text("Por favor selecciona una opción:", reply_markup=reply_markup)
+    elif update.callback_query:
+        await update.callback_query.edit_message_text("Por favor selecciona una opción:", reply_markup=reply_markup)
 
-# Función para manejar los botones del menú
+
 async def boton_callback(update: Update, context: CallbackContext):
     """Maneja la acción de los botones."""
     query = update.callback_query
     await query.answer()
+    user_id = query.from_user.id
 
-    user_id = query.from_user.id  # ID del usuario
+    if query.data == "ajustes":
+        # Submenú de ajustes
+        ajustes_keyboard = [
+            [InlineKeyboardButton("     Editar Logo     ", callback_data="editar_logo")],
+            [InlineKeyboardButton("     Editar Mensaje      ", callback_data="editar_mensaje")],
+            [InlineKeyboardButton("   Regresar ↩️   ", callback_data="regresar_menu")]
+        ]
+        ajustes_markup = InlineKeyboardMarkup(ajustes_keyboard)
+        await query.edit_message_text("Por favor selecciona una opción:", reply_markup=ajustes_markup)
 
-    if query.data == "editar_logo":
+    elif query.data == "editar_logo":
+        # Activar el estado de edición para el logo
         estado_edicion["logo"][user_id] = True
-        await query.edit_message_text(text="Por favor, ingresa el nuevo URL de la imagen del logo:")
+        await query.edit_message_text("Por favor, ingresa el nuevo URL para la imagen del logo:")
+
     elif query.data == "editar_mensaje":
+        # Activar el estado de edición para el mensaje
         estado_edicion["mensaje"][user_id] = True
-        await query.edit_message_text(text="Por favor, ingresa el nuevo mensaje predeterminado:")
-    elif query.data == "fecha_expiracion":
-        # Obtener la fecha de expiración del usuario desde el API
-        try:
-            usuario_response = requests.get(f"{API_BASE_URL}/{user_id}")
-            if usuario_response.status_code == 200:
-                usuario_data = usuario_response.json()
-                fecha_expiracion = usuario_data.get("expires_at", "No disponible")
-                await query.edit_message_text(text=f"📅 Tu membresía expira en la siguiente fecha: {fecha_expiracion}")
-            else:
-                await query.edit_message_text(text="❌ No se pudo obtener la fecha de expiración.")
-        except requests.RequestException as e:
-            await query.edit_message_text(text=f"❌ Error al conectarse con el API: {e}")
-    elif query.data == "ayuda":
-        # Mensaje de ayuda con comandos disponibles
-        mensaje_ayuda = (
-            "📋 *Comandos del bot:*\n"
-            "/start - Inicia el bot.\n"
-            "/send - Enviar un mensaje o URL.\n\n"
-            "Si necesitas asistencia adicional, contacta al administrador. \n"
-            "Contacto: @antonio674"
-        )
-        await query.edit_message_text(text=mensaje_ayuda, parse_mode="Markdown")
+        await query.edit_message_text("Por favor, ingresa el nuevo mensaje predeterminado:")
+
+    elif query.data == "regresar_menu":
+        # Volver al menú principal
+        await menu(update, context)
+
+
 
 # Función para manejar la entrada de nuevos datos (logo o mensaje)
 async def manejar_mensaje(update: Update, context: CallbackContext):
@@ -133,9 +133,19 @@ async def manejar_mensaje(update: Update, context: CallbackContext):
 
 # Función para validar si un URL es de una imagen válida
 def validar_url_imagen(url):
-    """Valida si el URL es de una imagen válida."""
-    patron = re.compile(r'^(https?://.*\.(?:png|jpg|jpeg|gif|webp))$')
-    return re.match(patron, url) is not None
+    """Valida si el URL apunta a una imagen, incluso si no termina con una extensión de archivo."""
+    try:
+        # Validar el formato básico del URL
+        patron = re.compile(r'^https?://')
+        if not re.match(patron, url):
+            return False
+
+        # Realizar una solicitud HEAD para verificar el Content-Type
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        content_type = response.headers.get("Content-Type", "")
+        return content_type.startswith("image/")
+    except requests.RequestException:
+        return False
 
 # Función para agregar los manejadores de los comandos y botones
 def agregar_manejadores(application):
