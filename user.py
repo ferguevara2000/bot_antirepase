@@ -1,16 +1,19 @@
 import requests
-
-# Dirección del API
-API_URL = "https://webapp-telegram-backend.onrender.com/users"
+from config import API_URL, API_KEY
 
 def cargar_datos_usuarios():
-    """Carga los datos de los usuarios desde un API."""
+    """Carga los datos de los usuarios desde la API de Supabase."""
     try:
-        response = requests.get(API_URL)
+        headers = {
+            "Content-Type": "application/json",
+            "apikey": API_KEY,
+            "Authorization": f"Bearer {API_KEY}"
+        }
+        response = requests.post(f"{API_URL}/get_user_list", headers=headers)  # Supabase requiere POST
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
         return response.json()  # Devuelve una lista de usuarios
     except requests.exceptions.RequestException as e:
-        print(f"Error al cargar usuarios desde el API: {e}")
+        print(f"Error al cargar usuarios desde Supabase: {e}")
         return []  # Retorna una lista vacía si la solicitud falla
 
 def obtener_datos_usuario(user_id):

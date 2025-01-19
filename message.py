@@ -1,14 +1,18 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 import re
+import base64
 from auth import is_user_authorized  # Verificar autorización
 from user import obtener_datos_usuario, obtener_image_id_usuario  # Lógica de usuario
 from api import actualizar_imagen_api  # Llamadas a la API
 from config import WEB_LINK  # Enlace del botón
 
-async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Función para enviar un mensaje con un botón de enlace y la imagen predeterminada a un chat especificado."""
-    bot = context.bot
+# Diccionario para almacenar el estado temporal de los usuarios
+USER_STATE = {}
+
+# Paso 1: Inicio del comando /send
+async def iniciar_envio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Inicia el flujo de envío solicitando el ID del chat."""
     user_id = update.effective_user.id
 
     # Verificar si el usuario está autorizado
@@ -18,65 +22,99 @@ async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    args = context.args  # Obtiene los argumentos del comando
+    # Guardar el estado del usuario
+    USER_STATE[user_id] = {"step": "awaiting_chat_id"}
 
-    # Validar que se hayan pasado los argumentos necesarios
-    if len(args) != 2:
-        await update.message.reply_text(
-            "Uso incorrecto del comando.\n\n"
-            "Formato correcto: /send <chat_id> <image_url>"
-        )
+    await update.message.reply_text("Por favor, proporcione el ID del chat de destino:")
+
+# Paso 2: Recepción del ID del chat
+async def recibir_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe y valida el ID del chat del usuario."""
+    user_id = update.effective_user.id
+    if user_id not in USER_STATE or USER_STATE[user_id].get("step") != "awaiting_chat_id":
         return
 
-    # Obtener el ID del chat del primer argumento
-    chat_id = args[0]
+    chat_id = update.message.text
 
-    # Validar formato del chat ID (puede ser un número o un número con prefijo '-')
+    # Validar formato del chat ID
     if not re.match(r"^-?\d+$", chat_id):
         await update.message.reply_text("El ID del chat proporcionado no es válido.")
         return
 
-    # Obtener la URL de la imagen del segundo argumento
-    image_url = args[1]
+    # Guardar el ID del chat en el estado del usuario
+    USER_STATE[user_id]["chat_id"] = chat_id
+    USER_STATE[user_id]["step"] = "awaiting_image"
 
-    # Validar formato de la URL (opcional, para mayor robustez)
-    if not image_url.startswith("http"):
-        await update.message.reply_text("Proporcione una URL válida para la imagen.")
+    await update.message.reply_text("Por favor, envíe la imagen que desea reenviar:")
+
+# Paso 3: Recepción de la imagen
+async def recibir_imagen(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe la imagen, la convierte a Base64 y actualiza la API."""
+    user_id = update.effective_user.id
+    if user_id not in USER_STATE or USER_STATE[user_id].get("step") != "awaiting_image":
         return
+
+    # Validar que el mensaje tenga una imagen
+    if not update.message.photo:
+        await update.message.reply_text("Por favor, envíe una imagen válida.")
+        return
+
+    # Obtener el archivo de la imagen más grande enviada
+    photo = update.message.photo[-1]
+    file = await context.bot.get_file(photo.file_id)
+
+    # Descargar la imagen
+    image_path = f"{user_id}_temp_image.jpg"
+    await file.download_to_drive(image_path)
+
+    # Convertir la imagen a Base64
+    try:
+        with open(image_path, "rb") as img_file:
+            image_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+    except Exception as e:
+        await update.message.reply_text(f"Error al procesar la imagen: {e}")
+        return
+
+    # Obtener el image_id del usuario
+    image_id = obtener_image_id_usuario(user_id)
+    print("Imagen Id: ",image_id)
+
+    # Actualizar la imagen en la API
+    api_response = actualizar_imagen_api(image_id, image_base64)
+    if "error" in api_response:
+        print(f"Error al actualizar la imagen en la API: {api_response['error']}")
+        await update.message.reply_text(f"Error al actualizar la imagen")
+        return
+
+    # Enviar el mensaje al chat de destino
+    await enviar_mensaje_destino(update, context, USER_STATE[user_id]["chat_id"])
+
+    # Limpiar el estado del usuario
+    del USER_STATE[user_id]
+
+# Paso 4: Enviar el mensaje al chat de destino
+async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: str):
+    """Envía el mensaje al chat de destino con la imagen actualizada."""
+    user_id = update.effective_user.id
 
     # Obtener los datos predeterminados del usuario
     mensaje_predeterminado, imagen_predeterminada = obtener_datos_usuario(user_id)
 
     # Configuración del botón que actúa como enlace
     button = InlineKeyboardButton(
-        text="Desbloquear Contenido",  # Texto del botón
-        url=WEB_LINK,                 # URL del enlace
+        text="Desbloquear Contenido",
+        url=WEB_LINK,
     )
-
-    # Crear el teclado con el botón
     reply_markup = InlineKeyboardMarkup([[button]])
 
     try:
-        # Obtener el image_id del usuario
-        image_id = obtener_image_id_usuario(user_id)
-
-        # Llamar a la API para actualizar la imagen
-        api_response = actualizar_imagen_api(image_id, image_url)
-
-        # Verificar si hubo un error en la API
-        if "error" in api_response:
-            await update.message.reply_text(f"Error al actualizar la API: {api_response['error']}")
-            return
-
-        # Enviar la imagen predeterminada junto con el mensaje y el botón al chat especificado
-        await bot.send_photo(
+        # Enviar la imagen y el mensaje al chat de destino
+        await context.bot.send_photo(
             chat_id=chat_id,
-            photo=imagen_predeterminada,  # Imagen predeterminada
-            caption=mensaje_predeterminado,  # Mensaje predeterminado
-            reply_markup=reply_markup,   # Teclado con el botón
+            photo=imagen_predeterminada,
+            caption=mensaje_predeterminado,
+            reply_markup=reply_markup,
         )
-        await update.message.reply_text(
-            f"Mensaje enviado al chat {chat_id}"
-        )
+        await update.message.reply_text(f"Mensaje enviado exitosamente al chat {chat_id}.")
     except Exception as e:
         await update.message.reply_text(f"Error al enviar el mensaje: {e}")

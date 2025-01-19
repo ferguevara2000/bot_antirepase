@@ -1,11 +1,9 @@
-from threading import Thread
-from server import start_server  # Importar el servidor Flask
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-from config import TOKEN, WEB_LINK  # Importar parámetros desde config.py
-from auth import get_authorization_message, is_user_authorized  # Importar autenticación
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from config import TOKEN  # Importar el token desde config.py
+from auth import get_authorization_message  # Importar autenticación
 from menu import agregar_manejadores, menu
-from message import send_message  # Importar la función de enviar mensaje
+from message import iniciar_envio, recibir_imagen, recibir_chat_id  # Importar la función de enviar mensaje
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Comando /start para autenticar usuarios"""
@@ -20,19 +18,15 @@ def main():
 
     # Comandos disponibles
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("send", send_message))
+    application.add_handler(CommandHandler("send", iniciar_envio))
     application.add_handler(CommandHandler("menu", menu))  # Agregar el comando /menu
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_chat_id))
+    application.add_handler(MessageHandler(filters.PHOTO, recibir_imagen))
 
     # Llamar la función que agrega los manejadores del menú
     agregar_manejadores(application)
 
-    # Inicia el servidor Flask en un hilo paralelo
-    server_thread = Thread(target=start_server, daemon=True)
-    server_thread.start()
-
     # Iniciar el bot
     application.run_polling()
     print("Bot está en funcionamiento...")
-
-if __name__ == "__main__":
-    main()

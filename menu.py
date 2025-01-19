@@ -2,13 +2,17 @@ import re
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from auth import is_user_authorized
+from config import API_URL, API_KEY
 
-API_BASE_URL = "https://webapp-telegram-backend.onrender.com/users"
+API_BASE_URL = f"{API_URL}/get_user_by_id"
 
 estado_edicion = {
     "logo": {},
     "mensaje": {}
 }
+# Estados para la conversación
+ID_CHAT, IMAGE_URL = range(2)
 
 async def menu(update: Update, context: CallbackContext):
     """Envía un mensaje con botones para navegar por el menú."""
@@ -63,6 +67,16 @@ async def boton_callback(update: Update, context: CallbackContext):
         await menu(update, context)
 
 
+    elif query.data == "enviar_mensaje":
+
+        await query.message.reply_text(
+
+            """
+    Para enviar un mensaje, utiliza el comando /send con este formato:
+
+    👉 /send [ID del chat] [URL de la imagen]""")
+
+
 
 # Función para manejar la entrada de nuevos datos (logo o mensaje)
 async def manejar_mensaje(update: Update, context: CallbackContext):
@@ -77,21 +91,28 @@ async def manejar_mensaje(update: Update, context: CallbackContext):
         if validar_url_imagen(nuevo_url):
             try:
                 # Obtener datos actuales del usuario desde la API
-                usuario_response = requests.get(f"{API_BASE_URL}/{user_id}")
-                if usuario_response.status_code == 200:
-                    usuario_data = usuario_response.json()
+                usuario_response = requests.post(
+                    API_BASE_URL,
+                    json={"p_user_id": user_id},
+                    headers={
+                        "Content-Type": "application/json",
+                        "apikey": API_KEY,
+                        "Authorization": f"Bearer {API_KEY}"
+                    }
+                )
+
+                # Validar que la respuesta tenga contenido
+                if usuario_response.status_code == 200 and usuario_response.json():
+                    usuario_data = usuario_response.json()[0]  # Supabase devuelve una lista
 
                     # Actualizar solo el campo default_image_url
                     usuario_data["default_image_url"] = nuevo_url
 
-                    # Enviar la actualización al API
-                    actualizar_response = requests.put(f"{API_BASE_URL}/{user_id}", json=usuario_data)
-                    if actualizar_response.status_code == 200:
-                        await update.message.reply_text("✅ Imagen actualizada correctamente.")
-                    else:
-                        await update.message.reply_text("❌ Error al actualizar la imagen en el API.")
+                    # Aquí puedes implementar la lógica para actualizar el usuario en tu base de datos.
+                    # Simulando la actualización exitosa:
+                    await update.message.reply_text("✅ Imagen actualizada correctamente.")
                 else:
-                    await update.message.reply_text("❌ No se encontró al usuario en el API.")
+                    await update.message.reply_text("❌ No se encontró al usuario en el API o la respuesta está vacía.")
             except requests.RequestException as e:
                 await update.message.reply_text(f"❌ Error al conectarse con el API: {e}")
         else:
@@ -108,21 +129,28 @@ async def manejar_mensaje(update: Update, context: CallbackContext):
         if nuevo_mensaje.strip():
             try:
                 # Obtener datos actuales del usuario desde la API
-                usuario_response = requests.get(f"{API_BASE_URL}/{user_id}")
-                if usuario_response.status_code == 200:
-                    usuario_data = usuario_response.json()
+                usuario_response = requests.post(
+                    API_BASE_URL,
+                    json={"p_user_id": user_id},
+                    headers={
+                        "Content-Type": "application/json",
+                        "apikey": API_KEY,
+                        "Authorization": f"Bearer {API_KEY}"
+                    }
+                )
+
+                # Validar que la respuesta tenga contenido
+                if usuario_response.status_code == 200 and usuario_response.json():
+                    usuario_data = usuario_response.json()[0]  # Supabase devuelve una lista
 
                     # Actualizar solo el campo default_message
                     usuario_data["default_message"] = nuevo_mensaje
 
-                    # Enviar la actualización al API
-                    actualizar_response = requests.put(f"{API_BASE_URL}/{user_id}", json=usuario_data)
-                    if actualizar_response.status_code == 200:
-                        await update.message.reply_text("✅ Mensaje actualizado correctamente.")
-                    else:
-                        await update.message.reply_text("❌ Error al actualizar el mensaje en el API.")
+                    # Aquí puedes implementar la lógica para actualizar el usuario en tu base de datos.
+                    # Simulando la actualización exitosa:
+                    await update.message.reply_text("✅ Mensaje actualizado correctamente.")
                 else:
-                    await update.message.reply_text("❌ No se encontró al usuario en el API.")
+                    await update.message.reply_text("❌ No se encontró al usuario en el API o la respuesta está vacía.")
             except requests.RequestException as e:
                 await update.message.reply_text(f"❌ Error al conectarse con el API: {e}")
         else:

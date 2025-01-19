@@ -1,17 +1,20 @@
 import requests
 from datetime import datetime
+from config import API_KEY, API_URL
 
-# Dirección del API
-API_URL = "https://webapp-telegram-backend.onrender.com/users"
-
-# Cargar la lista de usuarios desde el API
+# Cargar la lista de usuarios desde Supabase
 def load_users():
     try:
-        response = requests.get(API_URL)
+        headers = {
+            "Content-Type": "application/json",
+            "apikey": API_KEY,
+            "Authorization": f"Bearer {API_KEY}"
+        }
+        response = requests.post(f"{API_URL}/get_user_list", headers=headers)  # Hacemos una solicitud POST
         response.raise_for_status()  # Verificar si la solicitud fue exitosa
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error al cargar usuarios desde el API: {e}")
+        print(f"Error al cargar usuarios desde Supabase: {e}")
         return []
 
 # Verificar si el usuario está autorizado

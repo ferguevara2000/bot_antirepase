@@ -1,32 +1,38 @@
+import base64
 import requests  # Para realizar solicitudes HTTP
+from config import API_URL, API_KEY
 
 # URL base de la API
-API_BASE_URL = "https://webapp-telegram-backend.onrender.com"
+API_BASE_URL = f"{API_URL}/update_image"
 
-def actualizar_imagen_api(image_id, image_url):
-    """
-    Actualiza la URL de una imagen en la API.
 
-    Args:
-        chat_id (str): El ID del chat donde se envía el mensaje.
-        image_url (str): La URL de la nueva imagen.
-
-    Returns:
-        dict: Respuesta de la API.
-    """
+def actualizar_imagen_api(image_id, new_image_base64):
     try:
-        # Realizar solicitud PUT a la API
-        response = requests.put(
-            f"{API_BASE_URL}/images/{image_id}",
-            json={"url": image_url}
+        # Realizar solicitud POST a la API
+        response = requests.post(
+            API_BASE_URL,
+            json={"image_id": image_id, "new_image_data": new_image_base64},
+            headers={
+                "Content-Type": "application/json",
+                "apikey": API_KEY,
+                "Authorization": f"Bearer {API_KEY}"
+            }
         )
 
         # Validar el código de estado de la respuesta
-        if response.status_code == 200:
-            return response.json()  # Retorna la respuesta en formato JSON
+        if response.status_code in [200, 204]:
+            print("Imagen actualizada correctamente.")
+
+            # Verificar si hay contenido en la respuesta
+            if response.text.strip():  # Si la respuesta no está vacía
+                return response.json()  # Retorna el contenido en formato JSON
+            else:
+                return {"message": "Imagen actualizada correctamente, pero no hay contenido en la respuesta."}
         else:
-            # Levantar una excepción si hay un error en la API
-            response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        # Manejo de errores HTTP y de red
+            print(f"Error al actualizar la imagen: {response.status_code}, {response.text}")
+            return {"error": response.text, "status_code": response.status_code}
+
+    except Exception as e:
+        print(f"Excepción ocurrida: {e}")
         return {"error": str(e)}
+
