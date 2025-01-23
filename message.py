@@ -8,7 +8,7 @@ from auth import is_user_authorized  # Verificar autorización
 from user import obtener_datos_usuario, obtener_image_id_usuario  # Lógica de usuario
 from api import actualizar_imagen_api  # Llamadas a la API
 from config import WEB_LINK, API_KEY, API_URL  # Enlace del botón
-from chats import get_chats_by_user
+from chats import get_chats_by_user, verify_chat_exist, get_group_name, insert_group
 
 # Diccionario para almacenar el estado temporal de los usuarios
 USER_STATE = {}
@@ -31,11 +31,18 @@ async def iniciar_envio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chats_list = await get_chats_by_user(user_id, update, context)
 
     # Construir una cadena con el formato deseado
-    formatted_chats = "\n".join([f"- {chat['name']}:  {chat['chat_id']}" for chat in chats_list])
+    formatted_chats = "\n".join(
+        [f"- {chat['name']}:  `{chat['chat_id']}`" for chat in chats_list]  # Usar bloque de código Markdown
+    )
 
-    await update.message.reply_text(f"Por favor, proporcione el ID del chat de destino:\n"
-                                    f"Listado de ids registrados:\n"
-                                    f"{formatted_chats}")
+    await update.message.reply_text(
+        f"Por favor, proporcione el ID del chat de destino:\n\n"
+        f"Listado de IDs registrados:\n"
+        f"{formatted_chats}\n\n"
+        f"El ID de tu grupo o canal se agregará automáticamente a la lista al enviar un mensaje.",
+        parse_mode="Markdown"
+    )
+
 
 # Paso 2: Recepción del ID del chat
 async def recibir_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -54,6 +61,11 @@ async def recibir_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not re.match(r"^-?\d+$", chat_id):
         await update.message.reply_text("El ID del chat proporcionado no es válido.")
         return
+
+    chat_title = await get_group_name(context, chat_id)
+
+    if await verify_chat_exist(chat_id, user_id):
+        await insert_group(update, context, chat_id, chat_title, user_id)
 
     # Guardar el ID del chat en el estado del usuario
     USER_STATE[user_id]["chat_id"] = chat_id

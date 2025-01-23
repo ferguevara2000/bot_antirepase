@@ -69,12 +69,7 @@ async def boton_callback(update: Update, context: CallbackContext):
 
     elif query.data == "enviar_mensaje":
 
-        await query.message.reply_text(
-
-            """
-    Para enviar un mensaje, utiliza el comando /send con este formato:
-
-    👉 /send [ID del chat] [URL de la imagen]""")
+        await query.message.reply_text("Para enviar un mensaje, utiliza el comando /send")
 
 
 
