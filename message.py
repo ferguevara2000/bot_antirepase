@@ -43,13 +43,13 @@ async def iniciar_envio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-
 # Paso 2: Recepción del ID del chat
 async def recibir_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Recibe y valida el ID del chat del usuario."""
     user_id = update.effective_user.id
-    if user_id not in USER_STATE or USER_STATE[user_id].get("step") != "awaiting_chat_id":
-        return
+
+    if user_id not in USER_STATE:
+        USER_STATE[user_id] = {}
 
     chat_id = update.message.text
 
@@ -62,23 +62,31 @@ async def recibir_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("El ID del chat proporcionado no es válido.")
         return
 
+    # Obtener el nombre del grupo/canal si existe
     chat_title = await get_group_name(context, chat_id)
 
-    if await verify_chat_exist(chat_id, user_id):
+    # Registrar el grupo si no existe
+    if not await verify_chat_exist(chat_id, user_id):
         await insert_group(update, context, chat_id, chat_title, user_id)
 
-    # Guardar el ID del chat en el estado del usuario
+    # Guardar el último chat_id para el usuario
     USER_STATE[user_id]["chat_id"] = chat_id
     USER_STATE[user_id]["step"] = "awaiting_image"
 
     await update.message.reply_text("Por favor, envíe la imagen que desea reenviar:")
 
-# Paso 3: Recepción de la imagen
+
+# Recepción de la imagen (envío automático al último chat_id)
 async def recibir_imagen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Recibe la imagen, la convierte a Base64 y actualiza la API."""
     user_id = update.effective_user.id
-    if user_id not in USER_STATE or USER_STATE[user_id].get("step") != "awaiting_image":
+
+    if user_id not in USER_STATE or "chat_id" not in USER_STATE[user_id]:
+        await update.message.reply_text("No se encontró un chat_id registrado. Por favor, proporcione uno primero usando el comando /send")
         return
+
+    # Obtener el último chat_id del usuario
+    chat_id = USER_STATE[user_id]["chat_id"]
 
     # Validar que el mensaje tenga una imagen
     if not update.message.photo:
@@ -111,11 +119,11 @@ async def recibir_imagen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Error al actualizar la imagen")
         return
 
-    # Enviar el mensaje al chat de destino
-    await enviar_mensaje_destino(update, context, USER_STATE[user_id]["chat_id"])
+    # Enviar el mensaje al último chat_id
+    await enviar_mensaje_destino(update, context, chat_id)
 
-    # Limpiar el estado del usuario
-    del USER_STATE[user_id]
+    # No eliminar el estado, mantenerlo para futuras solicitudes
+    USER_STATE[user_id]["step"] = "awaiting_image"
 
 # Modifica la función enviar_mensaje_destino para reemplazar el mensaje original
 async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: str):
@@ -156,7 +164,7 @@ async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_T
         # Programar la eliminación del mensaje original y reemplazarlo
         context.job_queue.run_once(
             eliminar_y_reemplazar_mensaje,
-            when=15,  # Tiempo en segundos
+            when=120,  # Tiempo en segundos
             data={  # Aquí pasamos chat_id dentro de 'data'
                 "chat_id": chat_id,
                 "message_id": message_id,

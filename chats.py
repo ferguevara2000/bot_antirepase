@@ -109,7 +109,10 @@ async def verify_chat_exist(chat_id: str, user_id: Number):
         response = requests.post(f"{API_URL}/exist_chat_id_by_user", json=data, headers=headers)
 
         # Verificar si la solicitud fue exitosa
-        if response.status_code == 200 and response.content:  # Suponiendo que la API devuelve un 201 al crear un recurso
+        if response.status_code == 200:
+            # Comprobar si el contenido es una lista vacía
+            if not response.json():
+                return False
             return True
         else:
             # Respuesta en caso de error de la API

@@ -22,14 +22,14 @@ def main():
     application.add_handler(CommandHandler("send", iniciar_envio))
     application.add_handler(CommandHandler("menu", menu))  # Agregar el comando /menu
 
+    # Llamar la función que agrega los manejadores del menú
+    agregar_manejadores(application)
+
     # Agregar el manejador para mensajes reenviados
     application.add_handler(MessageHandler(filters.FORWARDED, handle_forwarded_message))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_chat_id))
     application.add_handler(MessageHandler(filters.PHOTO, recibir_imagen))
-
-    # Llamar la función que agrega los manejadores del menú
-    agregar_manejadores(application)
 
     # Iniciar el bot
     application.run_polling()
