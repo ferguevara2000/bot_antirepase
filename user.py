@@ -46,3 +46,17 @@ def obtener_image_id_usuario(user_id):
 
     # Si no se encuentra el usuario, se retorna un valor por defecto
     return 0
+
+def obtener_timer_usuario(user_id):
+    """Obtiene el timer configurado de un usuario."""
+    usuarios = cargar_datos_usuarios()
+
+    # Buscar al usuario en la lista de usuarios
+    usuario_data = next((usuario for usuario in usuarios if usuario['user_id'] == user_id), None)
+
+    if usuario_data:
+        return usuario_data.get("timer", 0)  # Retorna el timer o 0 como valor predeterminado
+
+    # Si no se encuentra el usuario, se retorna un valor por defecto
+    return 0
+

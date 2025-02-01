@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 import re
 import base64
 from auth import is_user_authorized  # Verificar autorización
-from user import obtener_datos_usuario, obtener_image_id_usuario  # Lógica de usuario
+from user import obtener_datos_usuario, obtener_image_id_usuario, obtener_timer_usuario  # Lógica de usuario
 from api import actualizar_imagen_api  # Llamadas a la API
 from config import WEB_LINK, API_KEY, API_URL  # Enlace del botón
 from chats import get_chats_by_user, verify_chat_exist, get_group_name, insert_group
@@ -161,10 +161,14 @@ async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_T
         # Obtener el message_id del mensaje original
         message_id = original_message.message_id
 
+        #Obtener el timer del usuario
+        user_timer = obtener_timer_usuario(user_id)
+        print("timer: ", user_timer)
+
         # Programar la eliminación del mensaje original y reemplazarlo
         context.job_queue.run_once(
             eliminar_y_reemplazar_mensaje,
-            when=120,  # Tiempo en segundos
+            when=user_timer,  # Tiempo en segundos
             data={  # Aquí pasamos chat_id dentro de 'data'
                 "chat_id": chat_id,
                 "message_id": message_id,
