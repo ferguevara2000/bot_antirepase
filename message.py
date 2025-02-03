@@ -1,12 +1,13 @@
 import os
+from io import BytesIO
 import requests
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputFile
 from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 import re
 import base64
 from auth import is_user_authorized  # Verificar autorización
 from user import obtener_datos_usuario, obtener_image_id_usuario, obtener_timer_usuario  # Lógica de usuario
-from api import actualizar_imagen_api  # Llamadas a la API
+from api import insertar_imagen, delete_image, get_image  # Llamadas a la API
 from config import WEB_LINK, API_KEY, API_URL  # Enlace del botón
 from chats import get_chats_by_user, verify_chat_exist, get_group_name, insert_group
 
@@ -75,7 +76,6 @@ async def recibir_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Por favor, envíe la imagen que desea reenviar:")
 
-
 # Recepción de la imagen (envío automático al último chat_id)
 async def recibir_imagen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Recibe la imagen, la convierte a Base64 y actualiza la API."""
@@ -97,23 +97,17 @@ async def recibir_imagen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo = update.message.photo[-1]
     file = await context.bot.get_file(photo.file_id)
 
-    # Descargar la imagen
-    image_path = f"{user_id}_temp_image.jpg"
-    await file.download_to_drive(image_path)
+    # Descargar la imagen en memoria
+    image_bytes = await file.download_as_bytearray()
 
     # Convertir la imagen a Base64
-    try:
-        with open(image_path, "rb") as img_file:
-            image_base64 = base64.b64encode(img_file.read()).decode('utf-8')
-    except Exception as e:
-        await update.message.reply_text(f"Error al procesar la imagen: {e}")
-        return
+    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
     # Obtener el image_id del usuario
     image_id = obtener_image_id_usuario(user_id)
 
     # Actualizar la imagen en la API
-    api_response = actualizar_imagen_api(image_id, image_base64)
+    api_response = insertar_imagen(image_base64, user_id)
     if "error" in api_response:
         print(f"Error al actualizar la imagen en la API: {api_response['error']}")
         await update.message.reply_text(f"Error al actualizar la imagen")
@@ -132,10 +126,9 @@ async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_T
 
     # Obtener el ID de la imagen y descargarla desde la API
     image_id = obtener_image_id_usuario(user_id)
-    print(image_id)
-    image_path = await obtener_imagen_desde_api(int(image_id))
+    image_base64 = await obtener_imagen_desde_api(int(image_id))
 
-    if not image_path:
+    if not image_base64:
         await update.message.reply_text("No se pudo obtener la imagen desde la API.")
         return
 
@@ -161,9 +154,8 @@ async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_T
         # Obtener el message_id del mensaje original
         message_id = original_message.message_id
 
-        #Obtener el timer del usuario
+        # Obtener el timer del usuario
         user_timer = obtener_timer_usuario(user_id)
-        print("timer: ", user_timer)
 
         # Programar la eliminación del mensaje original y reemplazarlo
         context.job_queue.run_once(
@@ -172,19 +164,14 @@ async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_T
             data={  # Aquí pasamos chat_id dentro de 'data'
                 "chat_id": chat_id,
                 "message_id": message_id,
-                "photo_path": f"{user_id}_temp_image.jpg",
+                "user_id": user_id
             },
         )
 
-        await update.message.reply_text(f"Mensaje enviado con exito al chat: {chat_id}")
+        await update.message.reply_text(f"Mensaje enviado con éxito al chat: {chat_id}")
 
     except Exception as e:
         await update.message.reply_text(f"Error al enviar el mensaje: {e}")
-    finally:
-        # Elimina el archivo temporal si ya no es necesario
-        if os.path.exists(image_path):
-            os.remove(image_path)
-
 
 async def obtener_imagen_desde_api(image_id: int):
     """Obtiene la imagen en base64 desde la API y la decodifica."""
@@ -215,6 +202,8 @@ async def eliminar_y_reemplazar_mensaje(context):
     """Elimina el mensaje original y lo reemplaza con la foto enviada originalmente."""
     job_data = context.job.data
     chat_id = job_data.get("chat_id")
+    user_id = job_data.get("user_id")
+
     try:
         # Eliminar el mensaje original
         await context.bot.delete_message(
@@ -222,14 +211,25 @@ async def eliminar_y_reemplazar_mensaje(context):
             message_id=job_data["message_id"],
         )
 
-        # Enviar nuevamente la foto sin el botón
-        await context.bot.send_photo(
-            chat_id=chat_id,
-            photo=open(job_data["photo_path"], "rb"),
-        )
+        # Obtener la imagen en base64 usando get_image(user_id)
+        image_base64 = get_image(user_id)  # Asume que get_image devuelve la imagen en base64
+
+        # Convertir la imagen base64 a un formato que Telegram pueda enviar
+        if image_base64:
+            # Decodificar la imagen base64 a bytes
+            image_bytes = base64.b64decode(image_base64)
+
+            # Crear un objeto BytesIO para manejar los bytes de la imagen
+            image_file = BytesIO(image_bytes)
+            image_file.name = "image.jpg"  # Nombre del archivo (puede ser cualquier nombre)
+
+            # Enviar la imagen al chat
+            await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=InputFile(image_file),
+            )
+
+        # Eliminar la imagen (si es necesario)
+        delete_image(user_id)
     except Exception as e:
         print(f"Error al reemplazar el mensaje: {e}")
-    finally:
-        # Eliminar el archivo temporal
-        if os.path.exists(job_data["photo_path"]):
-            os.remove(job_data["photo_path"])
