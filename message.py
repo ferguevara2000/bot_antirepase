@@ -132,10 +132,12 @@ async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("No se pudo obtener la imagen desde la API.")
         return
 
+    webapp_id = numero_a_nombre(user_id)
+
     # Configuración del botón que actúa como enlace
     button = InlineKeyboardButton(
         text="Desbloquear Contenido",
-        url=WEB_LINK,
+        url=f"{WEB_LINK}/{webapp_id}",
     )
     reply_markup = InlineKeyboardMarkup([[button]])
 
@@ -233,3 +235,32 @@ async def eliminar_y_reemplazar_mensaje(context):
         delete_image(user_id)
     except Exception as e:
         print(f"Error al reemplazar el mensaje: {e}")
+
+
+def numero_a_nombre(user_id):
+    # El conjunto de caracteres disponibles
+    caracteres = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+    # Convertir el número a cadena para manipularlo
+    num_str = str(user_id)
+
+    # Si el número tiene una longitud impar, lo completamos con un 0 al inicio
+    if len(num_str) % 2 != 0:
+        num_str = '0' + num_str
+
+    # Dividir el número en pares de dos dígitos
+    pares = [num_str[i:i + 2] for i in range(0, len(num_str), 2)]
+
+    # Convertir cada par en un índice y luego a un carácter
+    nombre = []
+    for par in pares:
+        num = int(par)
+        if num < len(caracteres):  # Asegurarse de que el número esté dentro del rango de caracteres
+            letra = caracteres[num]
+            nombre.append(letra)
+        else:
+            # Si el número no está en el rango válido, usar un marcador (o se podría manejar de otra manera)
+            nombre.append('_')
+
+    # Unir las letras para formar el "nombre"
+    return ''.join(nombre)
