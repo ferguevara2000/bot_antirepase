@@ -260,7 +260,7 @@ def numero_a_nombre(user_id):
             nombre.append(letra)
         else:
             # Si el número no está en el rango válido, usar un marcador (o se podría manejar de otra manera)
-            nombre.append('_')
+            nombre.append('a')
 
     # Unir las letras para formar el "nombre"
     return ''.join(nombre)
