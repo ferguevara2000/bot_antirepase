@@ -136,7 +136,7 @@ async def enviar_mensaje_destino(update: Update, context: ContextTypes.DEFAULT_T
 
     # Configuración del botón que actúa como enlace
     button = InlineKeyboardButton(
-        text="Desbloquear Contenido",
+        text="Open the pick",
         url=f"{WEB_LINK}/{webapp_id}",
     )
     reply_markup = InlineKeyboardMarkup([[button]])
