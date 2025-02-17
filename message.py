@@ -1,7 +1,7 @@
 import os
 from io import BytesIO
 import requests
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputFile
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputFile, InputMediaPhoto
 from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 import re
 import base64
@@ -201,41 +201,46 @@ async def obtener_imagen_desde_api(image_id: int):
         return None
 
 async def eliminar_y_reemplazar_mensaje(context):
-    """Elimina el mensaje original y lo reemplaza con la foto enviada originalmente."""
+    """Reemplaza la imagen en el mismo mensaje sin caption ni botones, evitando duplicados."""
     job_data = context.job.data
     chat_id = job_data.get("chat_id")
+    message_id = job_data.get("message_id")
     user_id = job_data.get("user_id")
 
     try:
-        # Eliminar el mensaje original
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=job_data["message_id"],
-        )
+        # Obtener la imagen en base64
+        image_base64 = get_image(user_id)
 
-        # Obtener la imagen en base64 usando get_image(user_id)
-        image_base64 = get_image(user_id)  # Asume que get_image devuelve la imagen en base64
-
-        # Convertir la imagen base64 a un formato que Telegram pueda enviar
         if image_base64:
             # Decodificar la imagen base64 a bytes
             image_bytes = base64.b64decode(image_base64)
-
-            # Crear un objeto BytesIO para manejar los bytes de la imagen
             image_file = BytesIO(image_bytes)
-            image_file.name = "image.jpg"  # Nombre del archivo (puede ser cualquier nombre)
+            image_file.name = "image.jpg"
 
-            # Enviar la imagen al chat
-            await context.bot.send_photo(
+            # Subir la imagen en modo silencioso para obtener el file_id
+            sent_photo = await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=InputFile(image_file),
+                disable_notification=True  # No genera notificación en el chat
+            )
+            file_id = sent_photo.photo[-1].file_id  # Obtener el file_id de la foto enviada
+
+            # Reemplazar la imagen en el mensaje original
+            await context.bot.edit_message_media(
+                chat_id=chat_id,
+                message_id=message_id,
+                media=InputMediaPhoto(media=file_id, caption=""),  # Caption vacío
+                reply_markup=None  # Elimina los botones
             )
 
-        # Eliminar la imagen (si es necesario)
+            # Eliminar la imagen extra después de obtener el file_id
+            await context.bot.delete_message(chat_id=chat_id, message_id=sent_photo.message_id)
+
+        # Eliminar la imagen de la base de datos si es necesario
         delete_image(user_id)
+
     except Exception as e:
         print(f"Error al reemplazar el mensaje: {e}")
-
 
 def numero_a_nombre(user_id):
     # El conjunto de caracteres disponibles
